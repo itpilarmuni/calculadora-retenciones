@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calculadora de Retenciones</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --azul:      #143a63;
+    --celeste:   #cfe9f6;
+    --acento:    #1e7fba;
+    --acento2:   #0fa36b;
+    --fondo:     #f0f7fc;
+    --borde:     #b8d9ef;
+    --texto:     #0d2a47;
+    --gris:      #6b8aa3;
+    --card:      #ffffff;
+    --mono:      'DM Mono', monospace;
+    --sans:      'Syne', sans-serif;
+    --radius:    10px;
+    --shadow:    0 2px 16px rgba(20,58,99,.10);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--fondo);
+    color: var(--texto);
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--azul);
+    color: #fff;
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.18);
+  }
+  header .escudo {
+    width: 48px; height: 48px;
+    background: var(--celeste);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; flex-shrink: 0;
+  }
+  header h1 { font-size: 1.25rem; font-weight: 800; letter-spacing: -.01em; }
+  header p  { font-size: .8rem; opacity: .7; font-weight: 400; margin-top: 1px; }
+
+  /* ── BANNER PADRÓN ── */
+  #banner {
+    background: #fff3cd;
+    border-bottom: 2px solid #ffc107;
+    padding: 10px 32px;
+    font-size: .85rem;
+    display: flex; align-items: center; gap: 10px;
+    color: #664d03;
+  }
+  #banner.ok   { background: #d1fadf; border-color: var(--acento2); color: #0a3622; }
+  #banner.err  { background: #ffe0e0; border-color: #dc3545; color: #58151c; }
+
+  /* ── LAYOUT ── */
+  .container {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 28px 20px;
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 24px;
+  }
+  @media(max-width: 760px) {
+    .container { grid-template-columns: 1fr; }
+  }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    border: 1.5px solid var(--borde);
+    box-shadow: var(--shadow);
+    padding: 22px 20px;
+  }
+  .card h2 {
+    font-size: .75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--gris);
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1.5px solid var(--borde);
+  }
+
+  /* ── FORM ELEMENTS ── */
+  label { font-size: .8rem; font-weight: 600; color: var(--gris); display: block; margin-bottom: 4px; }
+  
+  input[type=text], select {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1.5px solid var(--borde);
+    border-radius: 7px;
+    font-family: var(--mono);
+    font-size: .9rem;
+    color: var(--texto);
+    background: var(--fondo);
+    transition: border .15s;
+    outline: none;
+  }
+  input[type=text]:focus, select:focus {
+    border-color: var(--acento);
+    background: #fff;
+  }
+
+  .field { margin-bottom: 14px; }
+
+  .row { display: flex; gap: 10px; }
+  .row .field { flex: 1; }
+
+  /* ── BOTÓN PRINCIPAL ── */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    padding: 10px 20px;
+    border: none; border-radius: 7px;
+    font-family: var(--sans); font-size: .88rem; font-weight: 700;
+    cursor: pointer; transition: all .15s;
+    letter-spacing: .01em;
+  }
+  .btn-primary { background: var(--azul); color: #fff; width: 100%; }
+  .btn-primary:hover { background: #1a4d82; }
+  .btn-primary:disabled { opacity: .45; cursor: not-allowed; }
+
+  .btn-acento  { background: var(--acento); color: #fff; }
+  .btn-acento:hover { background: #1670a8; }
+
+  .btn-sm { padding: 6px 14px; font-size: .8rem; }
+
+  /* ── RADIO / CHECK CUSTOM ── */
+  .radio-group { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .radio-group label {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--fondo); border: 1.5px solid var(--borde);
+    border-radius: 6px; padding: 7px 12px;
+    font-size: .82rem; font-weight: 600; color: var(--texto);
+    cursor: pointer; transition: all .12s;
+    margin: 0;
+  }
+  .radio-group input[type=radio] { accent-color: var(--azul); }
+  .radio-group label:has(input:checked) {
+    background: var(--celeste); border-color: var(--azul); color: var(--azul);
+  }
+
+  .check-row {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 14px;
+  }
+  .check-row input[type=checkbox] { accent-color: var(--azul); width: 16px; height: 16px; }
+  .check-row label { font-size: .85rem; color: var(--texto); margin: 0; font-weight: 600; cursor: pointer; }
+
+  /* ── ARBA OVERRIDE BUTTONS ── */
+  .arba-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+  .arba-btn {
+    padding: 6px 14px;
+    border: 1.5px solid var(--borde);
+    border-radius: 6px;
+    background: var(--fondo);
+    font-family: var(--mono); font-size: .82rem;
+    cursor: pointer; transition: all .12s; color: var(--texto);
+  }
+  .arba-btn.active { background: var(--azul); color: #fff; border-color: var(--azul); }
+
+  /* ── PANEL AFIP ── */
+  #afip-result {
+    font-family: var(--mono);
+    font-size: .8rem;
+    line-height: 1.7;
+    color: var(--texto);
+    background: var(--fondo);
+    border-radius: 7px;
+    padding: 12px 14px;
+    min-height: 80px;
+    border: 1.5px solid var(--borde);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  #afip-result .tag {
+    display: inline-block;
+    padding: 1px 8px; border-radius: 4px;
+    font-size: .75rem; font-weight: 700;
+  }
+  .tag-ok   { background: #d1fadf; color: #0a3622; }
+  .tag-warn { background: #fff3cd; color: #664d03; }
+  .tag-bad  { background: #ffe0e0; color: #58151c; }
+
+  /* ── RESULTADO ── */
+  #resultado {
+    font-family: var(--mono);
+    font-size: .85rem;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--texto);
+  }
+  .res-seccion { font-weight: 700; color: var(--azul); margin-top: 4px; }
+  .res-total   { font-size: 1.1rem; font-weight: 700; color: var(--acento2); margin-top: 8px; }
+  .res-linea   { padding-left: 14px; }
+
+  /* ── LOADER ── */
+  .loader {
+    display: inline-block; width: 16px; height: 16px;
+    border: 2px solid #ccc; border-top-color: var(--azul);
+    border-radius: 50%; animation: spin .7s linear infinite;
+    vertical-align: middle; margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── PADRÓN LOAD SECTION ── */
+  #padron-section {
+    max-width: 1120px; margin: 0 auto; padding: 0 20px 12px;
+  }
+  .padron-card {
+    background: var(--card);
+    border: 1.5px dashed var(--borde);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+  .padron-card .icon { font-size: 2rem; }
+  .padron-card p  { font-size: .85rem; color: var(--gris); margin-top: 2px; }
+  .padron-card strong { font-size: .95rem; }
+
+  #padron-progress {
+    width: 100%; height: 6px;
+    background: var(--borde); border-radius: 3px;
+    overflow: hidden; display: none; margin-top: 10px;
+  }
+  #padron-progress-bar {
+    height: 100%; width: 0%;
+    background: var(--acento);
+    transition: width .3s;
+  }
+
+  hr.sep {
+    border: none; border-top: 1.5px solid var(--borde);
+    margin: 14px 0;
+  }
+
+  /* ── ARBA SECCION ── */
+  #arba-result {
+    font-family: var(--mono); font-size: .78rem;
+    color: var(--gris); margin-top: 8px; line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="escudo">🏛️</div>
+  <div>
+    <h1>Calculadora de Retenciones</h1>
+  </div>
+</header>
+
+<!-- Banner estado padrón -->
+<div id="banner">
+  <span id="banner-icon">⚠️</span>
+  <span id="banner-text">Padrón AFIP no cargado. Cargá el archivo SQLite para comenzar.</span>
+</div>
+
+<!-- Sección carga padrón -->
+<div id="padron-section">
+  <div style="height:16px"></div>
+  <div class="padron-card" id="padron-card">
+    <div class="icon">🗄️</div>
+    <div style="flex:1">
+      <strong>Cargar padrón AFIP (padron.sqlite)</strong>
+      <p>Seleccioná el archivo <code>padron.sqlite</code> generado con el convertidor. Se guarda en tu navegador hasta que lo actualices.</p>
+      <div id="padron-progress"><div id="padron-progress-bar"></div></div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <input type="file" id="file-sqlite" accept=".sqlite,.db" style="display:none">
+      <button class="btn btn-acento btn-sm" onclick="document.getElementById('file-sqlite').click()">
+        📂 Cargar SQLite
+      </button>
+      <button class="btn btn-sm" style="background:var(--fondo);border:1.5px solid var(--borde)" 
+              onclick="cargarDesdeURL()" id="btn-url" title="Cargar desde GitHub Releases">
+        🌐 Cargar desde URL
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- App principal -->
+<div class="container">
+
+  <!-- COLUMNA IZQUIERDA -->
+  <div>
+    <!-- Consulta AFIP -->
+    <div class="card" style="margin-bottom:20px">
+      <h2>Consulta AFIP</h2>
+      <div class="field">
+        <label>CUIT (sin guiones)</label>
+        <input type="text" id="input-cuit" maxlength="11" placeholder="20XXXXXXXXX"
+               onkeydown="if(event.key==='Enter') consultarAFIP()">
+      </div>
+      <button class="btn btn-primary" onclick="consultarAFIP()" id="btn-consultar">
+        🔍 Consultar AFIP
+      </button>
+      <div style="height:12px"></div>
+      <div id="afip-result">Ingresá un CUIT y consultá.</div>
+      <div id="arba-result"></div>
+    </div>
+
+    <!-- Config retenciones -->
+    <div class="card">
+      <h2>Configuración</h2>
+
+      <label style="margin-bottom:8px">Tipo de operación</label>
+      <div class="radio-group" style="margin-bottom:14px">
+        <label><input type="radio" name="tipo_op" value="SERVICIO PROFESIONAL" checked> Servicio profesional</label>
+        <label><input type="radio" name="tipo_op" value="ALQUILER"> Alquiler</label>
+        <label><input type="radio" name="tipo_op" value="VENTA DE BIENES"> Venta de bienes</label>
+      </div>
+
+      <div class="check-row">
+        <input type="checkbox" id="primer-pago">
+        <label for="primer-pago">Primer pago</label>
+      </div>
+
+      <div class="field">
+        <label>Tipo sujeto (solo NO INSCRIPTOS)</label>
+        <select id="combo-sujeto" disabled>
+          <option value="PERSONA HUMANA / SUCESIÓN">PERSONA HUMANA / SUCESIÓN</option>
+          <option value="RESTO DE SUJETOS">RESTO DE SUJETOS</option>
+        </select>
+      </div>
+
+      <div class="check-row">
+        <input type="checkbox" id="chk-empleador" onchange="toggleEmpleador()">
+        <label for="chk-empleador">Es empleador (según AFIP)</label>
+      </div>
+
+      <div class="field">
+        <label>Categoría SUSS</label>
+        <select id="combo-suss" disabled>
+          <option value="">— seleccioná —</option>
+          <option value="INGENIERIA">Ingeniería</option>
+          <option value="ARQUITECTURA U OTRAS">Arquitectura u otras</option>
+          <option value="TRANSUR">TRANSUR</option>
+          <option value="RESTO DE SUJETOS">Resto de sujetos</option>
+        </select>
+      </div>
+
+      <label style="margin-bottom:8px">ARBA (override manual)</label>
+      <div class="arba-btns" style="margin-bottom:14px">
+        <button class="arba-btn active" onclick="setArba(0)"   id="ab0">Sin override</button>
+        <button class="arba-btn"        onclick="setArba(1.5)" id="ab15">1,5%</button>
+        <button class="arba-btn"        onclick="setArba(2.5)" id="ab25">2,5%</button>
+      </div>
+
+      <div class="field">
+        <label>Monto factura (bruto)</label>
+        <input type="text" id="input-monto" placeholder="0,00" value="0">
+      </div>
+
+      <button class="btn btn-primary" onclick="calcular()" id="btn-calcular" disabled>
+        ⚡ Calcular retenciones
+      </button>
+    </div>
+  </div>
+
+  <!-- COLUMNA DERECHA -->
+  <div class="card">
+    <h2>Resultado</h2>
+    <div id="resultado" style="color:var(--gris);font-family:var(--mono);font-size:.85rem">
+      Consultá AFIP y luego calculá.
+    </div>
+  </div>
+
+</div>
+
+<!-- sql.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/sql-wasm.js"></script>
+<script>
+// ── Estado global ──────────────────────────────────────
+let SQL = null;
+let db  = null;
+let estadoAfip = null;
+let arbaOverride = 0.0;
+const DB_STORE = 'padronFiscalDB';
+const DB_KEY   = 'sqlite_data';
+
+// ── Init sql.js ────────────────────────────────────────
+(async () => {
+  try {
+    SQL = await initSqlJs({
+      locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.2/${f}`
+    });
+    // Intentar cargar de IndexedDB
+    await cargarDeIndexedDB();
+  } catch(e) {
+    console.error('sql.js init error', e);
+  }
+})();
+
+// ── IndexedDB helpers ──────────────────────────────────
+function abrirIDB() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open(DB_STORE, 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore('data');
+    req.onsuccess = e => res(e.target.result);
+    req.onerror   = e => rej(e);
+  });
+}
+async function guardarEnIDB(buffer) {
+  const idb   = await abrirIDB();
+  const tx    = idb.transaction('data', 'readwrite');
+  tx.objectStore('data').put(buffer, DB_KEY);
+  return new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
+}
+async function leerDeIDB() {
+  const idb = await abrirIDB();
+  return new Promise((res, rej) => {
+    const tx  = idb.transaction('data', 'readonly');
+    const req = tx.objectStore('data').get(DB_KEY);
+    req.onsuccess = e => res(e.target.result || null);
+    req.onerror   = e => rej(e);
+  });
+}
+async function cargarDeIndexedDB() {
+  try {
+    const buf = await leerDeIDB();
+    if (!buf) return;
+    db = new SQL.Database(new Uint8Array(buf));
+    setBannerOk(`Padrón cargado desde caché local. Para actualizar, cargá un nuevo SQLite.`);
+    document.getElementById('btn-calcular').disabled = false;
+  } catch(e) { /* sin caché, normal */ }
+}
+
+// ── Carga desde archivo local ──────────────────────────
+document.getElementById('file-sqlite').addEventListener('change', async function() {
+  const file = this.files[0];
+  if (!file) return;
+  setBannerLoading(`Cargando ${file.name}...`);
+  mostrarProgreso(true);
+  try {
+    const buf = await file.arrayBuffer();
+    db = new SQL.Database(new Uint8Array(buf));
+    await guardarEnIDB(buf);
+    mostrarProgreso(false, 100);
+    setBannerOk(`Padrón cargado: ${file.name} (${(buf.byteLength/1048576).toFixed(1)} MB). Guardado en caché.`);
+    document.getElementById('btn-calcular').disabled = false;
+  } catch(e) {
+    setBannerError('Error al cargar el SQLite: ' + e.message);
+    mostrarProgreso(false);
+  }
+});
+
+// ── Carga desde URL (GitHub Releases) ─────────────────
+async function cargarDesdeURL() {
+  const url = prompt(
+    'Ingresá la URL del archivo padron.sqlite (GitHub Releases):',
+    'https://github.com/TU_USUARIO/TU_REPO/releases/download/v1/padron.sqlite'
+  );
+  if (!url) return;
+  setBannerLoading('Descargando padrón desde URL...');
+  mostrarProgreso(true);
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const buf = await res.arrayBuffer();
+    db = new SQL.Database(new Uint8Array(buf));
+    await guardarEnIDB(buf);
+    mostrarProgreso(false, 100);
+    setBannerOk(`Padrón descargado y guardado en caché (${(buf.byteLength/1048576).toFixed(1)} MB).`);
+    document.getElementById('btn-calcular').disabled = false;
+  } catch(e) {
+    setBannerError('No se pudo descargar: ' + e.message);
+    mostrarProgreso(false);
+  }
+}
+
+// ── Banner helpers ─────────────────────────────────────
+function setBannerOk(msg)       { const b=document.getElementById('banner'); b.className='ok'; document.getElementById('banner-icon').textContent='✅'; document.getElementById('banner-text').textContent=msg; }
+function setBannerError(msg)    { const b=document.getElementById('banner'); b.className='err'; document.getElementById('banner-icon').textContent='❌'; document.getElementById('banner-text').textContent=msg; }
+function setBannerLoading(msg)  { const b=document.getElementById('banner'); b.className=''; document.getElementById('banner-icon').innerHTML='<span class="loader"></span>'; document.getElementById('banner-text').textContent=msg; }
+
+function mostrarProgreso(show, val=0) {
+  const p = document.getElementById('padron-progress');
+  const b = document.getElementById('padron-progress-bar');
+  p.style.display = show ? 'block' : 'none';
+  b.style.width = val + '%';
+  if (show && val===0) animarProgreso(b);
+}
+function animarProgreso(bar) {
+  let v = 0;
+  const t = setInterval(() => {
+    v = Math.min(v + Math.random() * 8, 85);
+    bar.style.width = v + '%';
+    if (v >= 85) clearInterval(t);
+  }, 300);
+}
+
+// ── Consulta AFIP ──────────────────────────────────────
+async function consultarAFIP() {
+  const cuit = document.getElementById('input-cuit').value.replace(/-/g,'').trim();
+  if (cuit.length !== 11 || !/^\d+$/.test(cuit)) {
+    alert('CUIT inválido. Ingresá 11 dígitos sin guiones.'); return;
+  }
+  if (!db) { alert('Cargá el padrón SQLite primero.'); return; }
+
+  document.getElementById('afip-result').textContent = '⏳ Buscando...';
+  document.getElementById('arba-result').textContent = '';
+
+  const stmt = db.prepare('SELECT * FROM padron WHERE CUIT = :cuit');
+  stmt.bind({':cuit': cuit});
+  let fila = null;
+  if (stmt.step()) fila = stmt.getAsObject();
+  stmt.free();
+
+  if (!fila) {
+    document.getElementById('afip-result').textContent = '❌ CUIT no encontrado en el padrón.';
+    estadoAfip = null; return;
+  }
+
+  const noInsc = (fila.IMP_IVA==='NI' && fila.IMP_GANANCIAS==='NI' && fila.MONOTRIBUTO==='NI');
+  const sujetoNI = cuit.slice(0,2) in {'20':'','23':'','24':'','27':''} 
+                   ? 'PERSONA HUMANA / SUCESIÓN' : 'RESTO DE SUJETOS';
+  const esEmpleador = (fila.EMPLEADOR === 'S');
+
+  estadoAfip = { cuit, denominacion: fila.DENOMINACION, iva: fila.IMP_IVA,
+                 gan: fila.IMP_GANANCIAS, mono: fila.MONOTRIBUTO,
+                 empleador: esEmpleador, noInscripto: noInsc, sujetoNI };
+
+  // UI combos
+  if (noInsc) {
+    document.getElementById('combo-sujeto').disabled = false;
+    document.getElementById('combo-sujeto').value = sujetoNI;
+  } else {
+    document.getElementById('combo-sujeto').disabled = true;
+  }
+  document.getElementById('chk-empleador').checked = esEmpleador;
+  document.getElementById('combo-suss').disabled = !esEmpleador;
+  if (!esEmpleador) document.getElementById('combo-suss').value = '';
+
+  // Mostrar resultado
+  document.getElementById('afip-result').innerHTML =
+    `<b>${fila.DENOMINACION}</b>\n` +
+    `CUIT: ${cuit}\n` +
+    `IVA: ${tradIva(fila.IMP_IVA)}\n` +
+    `Ganancias: ${tradGan(fila.IMP_GANANCIAS)}\n` +
+    `Monotributo: ${tradMono(fila.MONOTRIBUTO)}\n` +
+    `Empleador: ${fila.EMPLEADOR==='S'?'Sí':'No'}\n` +
+    `<span class="tag ${noInsc?'tag-warn':'tag-ok'}">${noInsc?'NO INSCRIPTO':'INSCRIPTO'}</span>`;
+
+  // ARBA web
+  document.getElementById('arba-result').textContent = '⏳ Consultando ARBA...';
+  try {
+    const r = await fetch(`https://padron.devos.com.ar/?cuit=${cuit}`, {mode:'no-cors'});
+    document.getElementById('arba-result').textContent = '';
+  } catch {
+    document.getElementById('arba-result').textContent =
+      'ℹ️ Consulta ARBA web no disponible desde el navegador (CORS). Verificá manualmente en padron.devos.com.ar';
+  }
+}
+
+// ── Traducciones ───────────────────────────────────────
+const T_IVA  = {AC:'Resp. Inscripto',EX:'Exento',NI:'No inscripto',NA:'No alcanzado',XN:'Exento',AN:'No alcanzado'};
+const T_GAN  = {AC:'Inscripto',EX:'Exento',NI:'No inscripto',NC:'No categorizado'};
+function tradIva(c)  { return T_IVA[c]  || c; }
+function tradGan(c)  { return T_GAN[c]  || c; }
+function tradMono(c) { return (c && 'ABCDEFGHIJK'.includes(c)) ? `Cat. ${c}` : 'No monotributista'; }
+
+// ── Formato AR ─────────────────────────────────────────
+function parseAR(s) {
+  s = (s||'').trim().replace(/\s/g,'').replace(/\./g,'').replace(',','.');
+  return parseFloat(s)||0;
+}
+function fmtAR(n) {
+  return n.toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+// ── ARBA override ──────────────────────────────────────
+function setArba(v) {
+  arbaOverride = v;
+  ['ab0','ab15','ab25'].forEach(id => document.getElementById(id).classList.remove('active'));
+  if (v===0)   document.getElementById('ab0').classList.add('active');
+  if (v===1.5) document.getElementById('ab15').classList.add('active');
+  if (v===2.5) document.getElementById('ab25').classList.add('active');
+}
+
+function toggleEmpleador() {
+  const chk = document.getElementById('chk-empleador').checked;
+  document.getElementById('combo-suss').disabled = !chk;
+  if (!chk) document.getElementById('combo-suss').value = '';
+}
+
+// ── Cálculos ───────────────────────────────────────────
+function calcARBA(bruto, tipoOp, override) {
+  const base = bruto >= 100000 ? bruto * 0.8 : 0;
+  if (base <= 0) return {base, alicuota:0, ret:0, modo:'No retiene (<$100.000)'};
+  const alic = override > 0 ? override
+             : tipoOp==='ALQUILER' ? 5.0
+             : tipoOp==='SERVICIO PROFESIONAL' ? 3.5 : 3.0;
+  const modo = override > 0 ? `Manual ${alic.toFixed(1)}%` : 'Default';
+  return {base, alicuota:alic, ret:base*(alic/100), modo};
+}
+
+function calcGanancias(bruto, tipoOp, primerPago, noInsc, sujetoNI) {
+  let resto=0, rate=0, minret=240;
+  if (tipoOp==='ALQUILER') {
+    resto  = primerPago ? 11200 : 0;
+    rate   = noInsc ? (sujetoNI==='PERSONA HUMANA / SUCESIÓN' ? 0.28 : 0.25) : 0.06;
+    minret = noInsc ? 1020 : 240;
+  } else if (tipoOp==='SERVICIO PROFESIONAL') {
+    resto  = primerPago ? 67170 : 0;
+    rate   = noInsc ? (sujetoNI==='PERSONA HUMANA / SUCESIÓN' ? 0.28 : 0.25) : 0.02;
+  } else { // VENTA DE BIENES
+    resto  = primerPago ? 224000 : 0;
+    rate   = noInsc ? 0.10 : 0.02;
+  }
+  const imp = Math.max(0, (bruto - resto) * rate);
+  const ret = imp >= minret ? imp : 0;
+  const det = `${primerPago?`(bruto - $${fmtAR(resto)})`:' bruto'} × ${(rate*100).toFixed(1)}% | mín $${fmtAR(minret)}`;
+  return {base:bruto, ret, detalle:det};
+}
+
+function calcSUSS(bruto, esEmpleador, categoria) {
+  const base = bruto / 1.21;
+  if (!esEmpleador) return {base, ret:0, detalle:'No empleador (no calcula)'};
+  const minret = 400;
+  let imp=0, det='';
+  if (categoria==='INGENIERIA')          { imp=bruto*0.012;  det=`bruto × 1,2% | mín $${fmtAR(minret)}`; }
+  else if (categoria==='ARQUITECTURA U OTRAS') { imp=bruto*0.025; det=`bruto × 2,5% | mín $${fmtAR(minret)}`; }
+  else if (categoria==='TRANSUR')        { imp=base*0.105;   det=`(bruto/1,21) × 10,5% | mín $${fmtAR(minret)}`; }
+  else                                   { imp=base*0.01;    det=`(bruto/1,21) × 1% | mín $${fmtAR(minret)}`; }
+  return {base, ret: imp>=minret?imp:0, detalle:det};
+}
+
+// ── Calcular ───────────────────────────────────────────
+function calcular() {
+  if (!estadoAfip) { alert('Consultá AFIP primero.'); return; }
+  const bruto    = parseAR(document.getElementById('input-monto').value);
+  if (bruto <= 0) { alert('Ingresá un monto válido.'); return; }
+
+  const tipoOp     = document.querySelector('input[name=tipo_op]:checked').value;
+  const primerPago = document.getElementById('primer-pago').checked;
+  const sujetoNI   = document.getElementById('combo-sujeto').value;
+  const esEmpl     = document.getElementById('chk-empleador').checked;
+  const catSUSS    = document.getElementById('combo-suss').value;
+
+  const rA = calcARBA(bruto, tipoOp, arbaOverride);
+  const rG = calcGanancias(bruto, tipoOp, primerPago, estadoAfip.noInscripto, sujetoNI);
+  const rS = calcSUSS(bruto, esEmpl, catSUSS);
+  const total = rA.ret + rG.ret + rS.ret;
+
+  const el = document.getElementById('resultado');
+  el.innerHTML = `
+<span class="res-seccion">━━ ${estadoAfip.denominacion}</span>
+<span class="res-linea">CUIT: ${estadoAfip.cuit}</span>
+<span class="res-linea">Condición: ${estadoAfip.noInscripto?'⚠️ NO INSCRIPTO':'✅ INSCRIPTO'}</span>
+<span class="res-linea">Operación: ${tipoOp} | ${primerPago?'PRIMER PAGO':'PAGO NORMAL'}</span>
+<span class="res-linea">Bruto: $ ${fmtAR(bruto)}</span>
+
+<span class="res-seccion">━━ ARBA</span>
+<span class="res-linea">Base imponible : $ ${fmtAR(rA.base)}</span>
+<span class="res-linea">Alícuota       : ${fmtAR(rA.alicuota)}% (${rA.modo})</span>
+<span class="res-linea">Retención      : $ ${fmtAR(rA.ret)}</span>
+
+<span class="res-seccion">━━ GANANCIAS</span>
+<span class="res-linea">Base imponible : $ ${fmtAR(rG.base)}</span>
+<span class="res-linea">Cálculo        : ${rG.detalle}</span>
+<span class="res-linea">Retención      : $ ${fmtAR(rG.ret)}</span>
+
+<span class="res-seccion">━━ SUSS</span>
+<span class="res-linea">Base imponible : $ ${fmtAR(rS.base)}</span>
+<span class="res-linea">Cálculo        : ${rS.detalle}</span>
+<span class="res-linea">Retención      : $ ${fmtAR(rS.ret)}</span>
+
+<span class="res-total">━━ TOTAL RETENCIONES: $ ${fmtAR(total)}</span>
+<span class="res-linea" style="color:var(--gris);font-size:.78rem">Neto a pagar: $ ${fmtAR(bruto - total)}</span>
+`.trim();
+}
+</script>
+</body>
+</html>
