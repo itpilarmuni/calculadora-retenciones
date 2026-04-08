@@ -1,0 +1,40 @@
+name: Consulta ARBA por CUIT
+
+on:
+  repository_dispatch:
+    types: [consulta_arba]   # Se dispara desde la app web
+  workflow_dispatch:
+    inputs:
+      cuit:
+        description: 'CUIT a consultar'
+        required: true
+
+jobs:
+  consultar_arba:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4
+
+      - name: Consultar CUIT en ARBA
+        run: |
+          CUIT="${{ github.event.client_payload.cuit || github.event.inputs.cuit }}"
+          python arba_scraper.py "$CUIT"
+
+      - name: Commit y push del cache
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add arba_cache.json
+          git commit -m "ARBA: actualizar CUIT ${{ github.event.client_payload.cuit || github.event.inputs.cuit }}" || echo "Sin cambios"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
