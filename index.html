@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="gh-token" content="REEMPLAZAR_CON_TOKEN">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Calculadora de Retenciones</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -433,11 +434,33 @@ async function leerDeIDB() {
 async function cargarDeIndexedDB() {
   try {
     const buf = await leerDeIDB();
-    if (!buf) return;
+    if (!buf) {
+      // No hay cache local, descargar desde Cloudflare R2 automáticamente
+      await cargarDesdeR2();
+      return;
+    }
     db = new SQL.Database(new Uint8Array(buf));
-    setBannerOk(`Padrón cargado desde caché local. Para actualizar, cargá un nuevo SQLite.`);
+    setBannerOk(`Padrón cargado. Para actualizar, cargá un nuevo SQLite.`);
     document.getElementById('btn-calcular').disabled = false;
-  } catch(e) { /* sin caché, normal */ }
+  } catch(e) { await cargarDesdeR2(); }
+}
+
+async function cargarDesdeR2() {
+  setBannerLoading('Descargando padrón AFIP... (primera vez, puede demorar)');
+  mostrarProgreso(true);
+  try {
+    const res = await fetch(SQLITE_URL);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const buf = await res.arrayBuffer();
+    db = new SQL.Database(new Uint8Array(buf));
+    await guardarEnIDB(buf);
+    mostrarProgreso(false, 100);
+    setBannerOk(`Padrón descargado y guardado. La próxima apertura será instantánea.`);
+    document.getElementById('btn-calcular').disabled = false;
+  } catch(e) {
+    setBannerError('No se pudo descargar el padrón automáticamente. Cargalo manualmente.');
+    mostrarProgreso(false);
+  }
 }
 
 // ── Carga desde archivo local ──────────────────────────
@@ -556,16 +579,138 @@ async function consultarAFIP() {
     `Empleador: ${fila.EMPLEADOR==='S'?'Sí':'No'}\n` +
     `<span class="tag ${noInsc?'tag-warn':'tag-ok'}">${noInsc?'NO INSCRIPTO':'INSCRIPTO'}</span>`;
 
-  // ARBA web
-  document.getElementById('arba-result').textContent = '⏳ Consultando ARBA...';
-  try {
-    const r = await fetch(`https://padron.devos.com.ar/?cuit=${cuit}`, {mode:'no-cors'});
-    document.getElementById('arba-result').textContent = '';
-  } catch {
-    document.getElementById('arba-result').textContent =
-      'ℹ️ Consulta ARBA web no disponible desde el navegador (CORS). Verificá manualmente en padron.devos.com.ar';
-  }
+  // ARBA — buscar en cache o disparar Action
+  await consultarARBA(cuit);
 }
+
+// ── ARBA via GitHub Actions ────────────────────────────
+const GH_OWNER  = 'itpilarmuni';
+const GH_REPO   = 'calculadora-retenciones';
+const CACHE_URL = 'https://pub-fcb5a668f76a4e6fac96f77ba3cabf61.r2.dev/arba_cache.json';
+const SQLITE_URL = 'https://pub-fcb5a668f76a4e6fac96f77ba3cabf61.r2.dev/padron.sqlite';
+
+const MENSAJES_ESPERA = [
+  '📋 Enviando telegrama a ARBA...',
+  '🏛️ ARBA recibió la consulta y la está procesando...',
+  '☕ El sistema está tomando unos mates...',
+  '📂 Buscando el expediente en el archivo...',
+  '🔍 Revisando el padrón con lupa...',
+  '📠 Enviando el fax de respuesta...',
+  '✍️ Firmando y sellando el resultado...',
+  '📬 Casi llega la respuesta...',
+  '⏳ Últimos detalles burocráticos...',
+  '✅ ¡Ya termina!',
+];
+
+async function consultarARBA(cuit) {
+  const el = document.getElementById('arba-result');
+
+  // 1. Intentar desde cache primero
+  try {
+    const r    = await fetch(CACHE_URL + '?t=' + Date.now());
+    const data = await r.json();
+    const contrib = data.contribuyentes?.[cuit];
+    if (contrib && !contrib.error) {
+      mostrarARBAResult(el, contrib);
+      return;
+    }
+  } catch(e) { /* cache no disponible aún */ }
+
+  // 2. No está en cache → disparar Action
+  el.innerHTML = renderContador(55);
+  iniciarContador(cuit, el);
+}
+
+function renderContador(seg) {
+  return `
+<div id="arba-waiting" style="background:var(--fondo);border:1.5px solid var(--borde);border-radius:8px;padding:14px;margin-top:10px">
+  <div style="font-size:.8rem;font-weight:700;color:var(--azul);margin-bottom:8px">🏛️ ARBA — Primera consulta para este CUIT</div>
+  <div style="font-size:2rem;font-weight:800;color:var(--acento);text-align:center;font-family:var(--mono)" id="arba-countdown">${seg}</div>
+  <div style="font-size:.78rem;color:var(--gris);text-align:center;margin:6px 0 10px" id="arba-msg">📋 Enviando telegrama a ARBA...</div>
+  <div style="background:var(--borde);border-radius:3px;height:6px;overflow:hidden">
+    <div id="arba-pbar" style="height:100%;width:0%;background:var(--acento);transition:width 1s linear"></div>
+  </div>
+</div>`;
+}
+
+async function iniciarContador(cuit, el) {
+  const tokenMeta = document.querySelector('meta[name="gh-token"]');
+  const token = tokenMeta ? tokenMeta.content : '';
+
+  try {
+    await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/dispatches`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ event_type: 'consulta_arba', client_payload: { cuit } })
+    });
+  } catch(e) {
+    el.textContent = '❌ No se pudo disparar la consulta ARBA. Usá el override manual.';
+    return;
+  }
+
+  const TOTAL = 55;
+  let seg     = TOTAL;
+  let msgIdx  = 0;
+
+  const timer = setInterval(async () => {
+    seg--;
+    const pct = ((TOTAL - seg) / TOTAL * 100).toFixed(1);
+    const cdEl = document.getElementById('arba-countdown');
+    const pbEl = document.getElementById('arba-pbar');
+    const mgEl = document.getElementById('arba-msg');
+    if (!cdEl) { clearInterval(timer); return; }
+
+    cdEl.textContent = seg;
+    pbEl.style.width = pct + '%';
+
+    const nuevoIdx = Math.min(Math.floor((TOTAL - seg) / 5), MENSAJES_ESPERA.length - 1);
+    if (nuevoIdx !== msgIdx) { msgIdx = nuevoIdx; mgEl.textContent = MENSAJES_ESPERA[msgIdx]; }
+
+    if (seg % 10 === 0 && seg < TOTAL) {
+      try {
+        const r    = await fetch(CACHE_URL + '?t=' + Date.now());
+        const data = await r.json();
+        const contrib = data.contribuyentes?.[cuit];
+        if (contrib && !contrib.error) { clearInterval(timer); mostrarARBAResult(el, contrib); return; }
+      } catch(e) {}
+    }
+
+    if (seg <= 0) {
+      clearInterval(timer);
+      try {
+        const r    = await fetch(CACHE_URL + '?t=' + Date.now());
+        const data = await r.json();
+        const contrib = data.contribuyentes?.[cuit];
+        if (contrib && !contrib.error) { mostrarARBAResult(el, contrib); return; }
+      } catch(e) {}
+      el.innerHTML = `<span style="color:var(--gris);font-size:.8rem">⚠️ ARBA tardó más de lo esperado. Intentá de nuevo o usá el override manual.</span>`;
+    }
+  }, 1000);
+}
+
+function mostrarARBAResult(el, contrib) {
+  const ret    = contrib.alicuota_retencion  || '—';
+  const per    = contrib.alicuota_percepcion || '—';
+  const retNum = parseFloat((ret+'').replace('%','').replace(',','.'));
+  if (!isNaN(retNum) && retNum > 0) {
+    arbaOverride = retNum;
+    ['ab0','ab15','ab25'].forEach(id => document.getElementById(id).classList.remove('active'));
+  }
+  el.innerHTML = `
+<div style="background:#d1fadf;border:1.5px solid var(--acento2);border-radius:8px;padding:12px;margin-top:10px;font-family:var(--mono);font-size:.8rem">
+  <div style="font-weight:700;color:#0a3622;margin-bottom:6px">✅ ARBA — Datos del padrón</div>
+  <div>Retención:  <b>${ret}</b></div>
+  <div>Percepción: <b>${per}</b></div>
+  ${contrib.grupo_retencion  ? `<div style="color:var(--gris)">Grupo ret.: ${contrib.grupo_retencion}</div>`  : ''}
+  ${contrib.grupo_percepcion ? `<div style="color:var(--gris)">Grupo per.: ${contrib.grupo_percepcion}</div>` : ''}
+  <div style="color:var(--gris);margin-top:4px;font-size:.72rem">Alícuota aplicada automáticamente al cálculo</div>
+</div>`;
+}
+
 
 // ── Traducciones ───────────────────────────────────────
 const T_IVA  = {AC:'Resp. Inscripto',EX:'Exento',NI:'No inscripto',NA:'No alcanzado',XN:'Exento',AN:'No alcanzado'};
